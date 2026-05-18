@@ -115,3 +115,74 @@ class MemoryAgent:
         connection.close()
 
         return reports
+
+    def get_report_by_id(self, report_id):
+        # Tek bir raporu kimliğine göre getirir.
+        self.create_database()
+
+        connection = sqlite3.connect(self.db_path)
+        cursor = connection.cursor()
+
+        cursor.execute(
+            """
+            SELECT
+                id,
+                report_date,
+                month_name,
+                total_amount,
+                transaction_count,
+                company_count,
+                pending_count,
+                summary
+            FROM reports
+            WHERE id = ?
+            """,
+            (report_id,),
+        )
+
+        report = cursor.fetchone()
+        connection.close()
+
+        return report
+
+    def delete_report(self, report_id):
+        # Seçilen raporu kimliğine göre siler.
+        self.create_database()
+
+        connection = sqlite3.connect(self.db_path)
+        cursor = connection.cursor()
+
+        cursor.execute("DELETE FROM reports WHERE id = ?", (report_id,))
+        deleted_count = cursor.rowcount
+
+        connection.commit()
+        connection.close()
+
+        return deleted_count > 0
+
+    def get_unique_month_reports(self):
+        # Her ay için en güncel (id'si en yüksek) tek raporu getirir.
+        self.create_database()
+
+        connection = sqlite3.connect(self.db_path)
+        cursor = connection.cursor()
+
+        cursor.execute(
+            """
+            SELECT r.id, r.report_date, r.month_name, r.total_amount, r.transaction_count,
+                   r.company_count, r.pending_count, r.summary
+            FROM reports r
+            INNER JOIN (
+                SELECT month_name, MAX(id) AS max_id
+                FROM reports
+                GROUP BY month_name
+            ) grouped_reports
+            ON r.id = grouped_reports.max_id
+            ORDER BY r.id DESC
+            """
+        )
+
+        reports = cursor.fetchall()
+        connection.close()
+
+        return reports
